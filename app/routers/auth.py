@@ -1,12 +1,11 @@
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..models import ADPUser, ADPRole, ADPUserRole
-from ..auth_utils import hash_password, verify_password, create_access_token
-from ..schemas import UserCreate, UserOut, Token
+from app.database import get_db
+from app.models import ADPUser, ADPRole, ADPUserRole
+from app.auth_utils import hash_password, verify_password, create_access_token
+from app.schemas import UserCreate, UserOut, Token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -17,7 +16,7 @@ def register_user(payload: UserCreate, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # Basic user_id assignment: you already have 10 seed users, so we take max+1
+    # Basic user_id assignment: you already have seed users, so we take max+1
     max_id = db.query(ADPUser.user_id).order_by(ADPUser.user_id.desc()).first()
     new_id = (max_id[0] + 1) if max_id and max_id[0] else 1
 
@@ -32,12 +31,18 @@ def register_user(payload: UserCreate, db: Session = Depends(get_db)):
 
     # Default role = CUSTOMER (assumes a row in adp_role with role_name='CUSTOMER')
     customer_role = db.query(ADPRole).filter(ADPRole.role_name == "CUSTOMER").first()
+    roles = []
     if customer_role:
         db.add(ADPUserRole(user_id=user.user_id, role_id=customer_role.role_id))
+        roles.append(customer_role.role_name)
 
     db.commit()
-    roles = [customer_role.role_name] if customer_role else []
-    return UserOut(user_id=user.user_id, email=user.email, full_name=user.full_name, roles=roles)
+    return UserOut(
+        user_id=user.user_id,
+        email=user.email,
+        full_name=user.full_name,
+        roles=roles,
+    )
 
 
 @router.post("/login", response_model=Token)
@@ -52,7 +57,6 @@ def login(
             detail="Incorrect email or password",
         )
 
-    # get roles
     roles = (
         db.query(ADPRole.role_name)
         .join(ADPUserRole, ADPUserRole.role_id == ADPRole.role_id)
