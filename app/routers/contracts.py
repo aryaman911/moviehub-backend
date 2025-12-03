@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List
 
-from ..database import get_db
-from ..models import ADPContract
-from ..schemas import ContractOut
-from ..deps import require_role
+from app.database import get_db
+from app.models import ADPContract
+from app.schemas import ContractOut
+from app.deps import require_role
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
 
